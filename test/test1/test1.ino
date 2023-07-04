@@ -52,27 +52,48 @@
 // AC2(-) and AC3(+) differential inputs,
 //  using internal reference voltage source (1.22V);
 //  Measurement voltage range ±0.61V
-/* i2c.write_byte_data(addr, RegACCfg5 , 0b00000011) */
+/* i2c.write_byte_data(addr, RegACCfg5 , 0b00010011) */
 
 //              Default   RegMode , 0b10000100
 /* i2c.write_byte_data(addr, RegMode , 0b10000100)  */
 
 uint8_t  regs[14];
+int      outval;
 
 void setup(void) {
   uint8_t data;
   int i;
+  pinMode(A0,OUTPUT);
+  digitalWrite(A0,LOW);
+  pinMode(A1,OUTPUT);
+  digitalWrite(A1,LOW);
+  pinMode(A2,INPUT);
+  
   Wire.begin();
   Serial.begin(115200);
   for (i=0;i<14;i++) {
     regs[i]=0xaa;
   }
   sx8725_read_allreg();
-  //  sx8725_setReg(RegACCfg5 , 0b00000011);
-  //  sx8725_read_allreg();
+  sx8725_setReg(RegACCfg0 , 0b00101010);
+  sx8725_setReg(RegACCfg1 , 0b11111101);
+  sx8725_setReg(RegACCfg2 , 0b00110000);
+  sx8725_setReg(RegACCfg3 , 0b00101000);
+  sx8725_setReg(RegACCfg5 , 0b00010011); // AC2 Vinp, AC3 Vinn
+  sx8725_read_allreg();
 }
 
 void loop(void) {
+  int r ;
+  int ready;
+  ready = digitalRead(A2);
+  if (ready!=0) {
+    Serial.print("READY=");
+    Serial.print(ready);
+    r = sx8725_read_ACOut();
+    Serial.print("  R=");
+    Serial.println(r);
+  }
 }
 
 
@@ -81,6 +102,18 @@ void loop(void) {
 */
 
 int sx8725_read_ACOut(void) {
+  uint8_t msb,lsb;
+  int     rv;
+  Wire.beginTransmission(i2c_addr);
+  Wire.write(RegACOutLsb);
+  Wire.endTransmission();
+  Wire.requestFrom(i2c_addr, 2);
+  while(Wire.available()){
+    lsb = Wire.read();
+    msb = Wire.read();
+  }
+  rv = (msb<<8)|lsb;
+  return(rv);
 }
 
 /*
