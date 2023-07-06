@@ -42,10 +42,11 @@ void setup(void) {
   sx8725_read_allreg();
 
   sx8725_setReg(RegACCfg0 , 0b00101000);
-  sx8725_setReg(RegACCfg1 , 0b11111101);
-  sx8725_setReg(RegACCfg2 , 0b00110000); // PGA2 = 10times
-  sx8725_setReg(RegACCfg3 , 0b00110000); // PGA3 = 4times
-  sx8725_setReg(RegACCfg5 , 0b00100100); // AC2 Vinp, AC3 
+  //  sx8725_setReg(RegACCfg1 , 0b11111101);
+  sx8725_setReg(RegACCfg1 , 0b11110001); // PGA stopped
+  //  sx8725_setReg(RegACCfg2 , 0b00110000); // PGA2 = 10times
+  //  sx8725_setReg(RegACCfg3 , 0b01100000); // PGA3 = 8times
+  sx8725_setReg(RegACCfg5 , 0b00100001); // AC2 Vinp, AC3 // Vss input
   sx8725_read_allreg();
   ready = false;
   busy = false;
