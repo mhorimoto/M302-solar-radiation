@@ -1,0 +1,5 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "Buffer")(type "Legacy")(uri "${KIPRJMOD}/Buffer.lib")(options "")(descr ""))
+  (lib (name "M302-rescue")(type "KiCad")(uri "${KIPRJMOD}/M302-rescue.kicad_sym")(options "")(descr ""))
+)

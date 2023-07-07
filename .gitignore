@@ -1,35 +1,28 @@
+# For PCBs designed using KiCad: http://www.kicad-pcb.org/
+# Format documentation: http://kicad-pcb.org/help/file-formats/
+
+# Temporary files
+*.000
+*.bak
+*.bck
+*.kicad_pcb-bak
+*.sch-bak
 *~
-main/main.touch
+_autosave-*
+*.tmp
+*-save.pro
+*-save.kicad_pcb
+fp-info-cache
 
-# Prerequisites
-*.d
+# Netlist files (exported from Eeschema)
+*.net
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# Autorouter files (exported from Pcbnew)
+*.dsn
+*.ses
 
-# Precompiled Headers
-*.gch
-*.pch
+# Exported BOM files
+*.xml
+*.csv
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
+# Backupfiles
