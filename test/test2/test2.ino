@@ -1,6 +1,14 @@
+#include <SPI.h>
+#include <Ethernet2.h>
+#include <EthernetUdp2.h> // UDP library from: bjoern@cs.stanford.edu 12/30/2008
+#include <avr/pgmspace.h>
+#include <avr/wdt.h>
+#include <EEPROM.h>
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h>
-#define sx8725_addr      0x48  //  SX8725C typical I2C Address
+
+#define UECS_PORT     16520
+#define sx8725_addr   0x48  //  SX8725C typical I2C Address
 #define Vref          1.22  //  SX8725C typical reference voltage
 #define RegRCen       0x30  //  RC oscillator control, Page 43
 #define RegOut        0x40  //  D0,D1 pads data output and direction control, Page 43
@@ -17,11 +25,21 @@
 #define RegACCfg5     0x57  //  ADC conversion control, Page 45
 #define RegMode       0x70  //  Chip operating mode register, Page 46
 
+const char VERSION[16] PROGMEM = "M302 Solar V0.02";
+char uecsid[6], uecstext[180],strIP[16],linebuf[80];
+
 LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
 char lcdtext[6][17];
 uint8_t  regs[14];
 int      outval;
 bool      ready,busy;
+byte macaddr[6];
+IPAddress localIP,broadcastIP,subnetmaskIP,remoteIP;
+EthernetUDP Udp16520; //,Udp16529;
+volatile int period1sec = 0;
+volatile int period10sec = 0;
+volatile int period60sec = 0;
+
 
 void setup(void) {
   uint8_t data;
@@ -34,6 +52,13 @@ void setup(void) {
   digitalWrite(A1,LOW);
   pinMode(A2,INPUT_PULLUP);
   
+  EEPROM.get(pUECSID,uecsid);
+  EEPROM.get(pMACADDR,macaddr);
+  for(i=0;i<16;i++) {
+    lcdtext[0][i] = pgm_read_byte(&(VERSION[i]));
+  }
+  lcdtext[0][i] = 0;
+
   Wire.begin();
   Serial.begin(115200);
   for (i=0;i<14;i++) {
@@ -42,19 +67,52 @@ void setup(void) {
   sx8725_read_allreg();
 
   sx8725_setReg(RegACCfg0 , 0b00101000);
-  //  sx8725_setReg(RegACCfg1 , 0b11111101);
-  sx8725_setReg(RegACCfg1 , 0b11110001); // PGA stopped
-  //  sx8725_setReg(RegACCfg2 , 0b00110000); // PGA2 = 10times
-  //  sx8725_setReg(RegACCfg3 , 0b01100000); // PGA3 = 8times
-  sx8725_setReg(RegACCfg5 , 0b00100001); // AC2 Vinp, AC3 // Vss input
+  sx8725_setReg(RegACCfg1 , 0b11111101); // PGA enable
+  //sx8725_setReg(RegACCfg1 , 0b11110001); // PGA stopped
+  sx8725_setReg(RegACCfg2 , 0b00110000); // PGA2 = 10times
+  sx8725_setReg(RegACCfg3 , 0b01100000); // PGA3 = 8times
+  sx8725_setReg(RegACCfg5 , 0b00100100); // AC2 Vinp, AC3
   sx8725_read_allreg();
   ready = false;
   busy = false;
+  Ethernet.init(10);
+  if (Ethernet.begin(macaddr)==0) {
+    sprintf(lcdtext[1],"NFL");
+  } else {
+    localIP = Ethernet.localIP();
+    subnetmaskIP = Ethernet.subnetMask();
+    for(i=0;i<4;i++) {
+      broadcastIP[i] = ~subnetmaskIP[i]|localIP[i];
+    }
+    sprintf(lcdtext[2],ids,"HW",
+            macaddr[0],macaddr[1],macaddr[2],macaddr[3],macaddr[4],macaddr[5]);
+    sprintf(strIP,"%d.%d.%d.%d",localIP[0],localIP[1],localIP[2],localIP[3]);
+    sprintf(lcdtext[3],"%s",strIP);
+    lcdout(2,3,1);
+    Udp16520.begin(16520);
+  }
+
+  lcd.setCursor(0,0);
+  lcd.print(pgname);
+  lcd.setCursor(0,1);
+  lcd.print(version);
+
+  
+  TCCR1A  = 0;
+  TCCR1B  = 0;
+  TCCR1B |= (1 << WGM12) | (1 << CS12) | (1 << CS10);  //CTCmode //prescaler to 1024
+  OCR1A   = 15625-1;
+  TIMSK1 |= (1 << OCIE1A);
 }
 
 
 void loop(void) {
   int r ;
+  extern int period1sec;
+  if (period1sec==1) {
+    UES();
+    period1sec = 0;
+  }
   if (busy==false) {
     sx8725_setReg(RegACCfg0 , 0b10101000); // Start
     busy = true;
@@ -165,3 +223,50 @@ void sx8725_setReg(uint8_t reg,uint8_t va) {
   Wire.write(va);
   Wire.endTransmission();
 }
+
+void UES(void) {
+  static bool aaa;
+  if (aaa) {
+    lcd.setCursor(10,1);
+    aaa=false;
+    lcd.print("X");
+  } else {
+    lcd.setCursor(10,1);
+    aaa=true;
+    lcd.print("O");
+  }
+}
+
+void UserEverySecond(void) {
+}
+
+void UserEveryMinute(void) {
+}
+
+ISR(TIMER1_COMPA_vect) {
+  static byte cnt10,cnt60;
+  cnt10++;
+  cnt60++;
+  period1sec = 1;
+  UserEverySecond();
+  if (cnt10 >= 10) {
+    cnt10 = 0;
+    period10sec = 1;
+  }
+  if (cnt60 >= 60) {
+    cnt60 = 0;
+    period60sec = 1;
+    UserEveryMinute();
+  }
+}
+
+void lcdout(int l1,int l2,int cl) {
+  if (cl!=0) {
+    lcd.clear();
+  }
+  lcd.setCursor(0,0);
+  lcd.print(lcdtext[l1]);
+  lcd.setCursor(0,1);
+  lcd.print(lcdtext[l2]);
+}
+

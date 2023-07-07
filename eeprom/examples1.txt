@@ -1,0 +1,13 @@
+M304jp STANDARD LOW CORE
+atsetb 0 10
+atsetb 1 10
+atsetb 2 0c
+atsetb 3 00
+atsetb 4 00
+atsetb 5 0b
+atsetb 6 02
+atsetb 7 a2
+atsetb 8 73
+atsetb 9 0b
+atsetb a 00
+atsetb b ??
