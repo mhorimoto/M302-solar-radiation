@@ -26,3 +26,4 @@ fp-info-cache
 *.csv
 
 # Backupfiles
+KiCAD/M302-backups/*.zip
