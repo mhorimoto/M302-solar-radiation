@@ -8,6 +8,9 @@
 #include <Wire.h>
 
 #define UECS_PORT     16520
+#define pUECSID       0
+#define pMACADDR      6
+
 #define sx8725_addr   0x48  //  SX8725C typical I2C Address
 #define Vref          1.22  //  SX8725C typical reference voltage
 #define RegRCen       0x30  //  RC oscillator control, Page 43
@@ -52,13 +55,14 @@ void setup(void) {
   digitalWrite(A1,LOW);
   pinMode(A2,INPUT_PULLUP);
   
-  // EEPROM.get(pUECSID,uecsid);
-  //EEPROM.get(pMACADDR,macaddr);
+  EEPROM.get(pUECSID,uecsid);
+  EEPROM.get(pMACADDR,macaddr);
   for(i=0;i<16;i++) {
     lcdtext[0][i] = pgm_read_byte(&(VERSION[i]));
   }
   lcdtext[0][i] = 0;
-
+  lcd.print(lcdtext[0]);
+  
   Wire.begin();
   Serial.begin(115200);
   for (i=0;i<14;i++) {
@@ -102,30 +106,11 @@ void setup(void) {
 
 void loop(void) {
   int r ;
+  float rv;
   extern int period1sec;
   if (period1sec==1) {
     UES();
     period1sec = 0;
-  }
-  if (busy==false) {
-    sx8725_setReg(RegACCfg0 , 0b10101000); // Start
-    busy = true;
-    ready= false;
-  }
-  while(true) {
-    if (digitalRead(A2)) {
-      ready = true;
-    } else {
-      ready = false;
-    }
-    if (ready) {
-      r = sx8725_read_ACOut();
-      Serial.print("  R=");
-      Serial.println(r);
-      ready = false;
-      busy = false;
-      return;
-    }
   }
 }
 
@@ -220,6 +205,9 @@ void sx8725_setReg(uint8_t reg,uint8_t va) {
 
 void UES(void) {
   static bool aaa;
+  int r;
+  float rv;
+  
   if (aaa) {
     lcd.setCursor(10,1);
     aaa=false;
@@ -228,6 +216,30 @@ void UES(void) {
     lcd.setCursor(10,1);
     aaa=true;
     lcd.print("O");
+  }
+  if (busy==false) {
+    sx8725_setReg(RegACCfg0 , 0b10101000); // Start
+    busy = true;
+    ready= false;
+  }
+  while(true) {
+    if (digitalRead(A2)) {
+      ready = true;
+    } else {
+      ready = false;
+    }
+    if (ready) {
+      r = sx8725_read_ACOut();
+      Serial.print("  R=");
+      Serial.print(r);
+      rv = 0.1269*r-10.43;
+      Serial.print("  Radiation=");
+      Serial.print(rv);
+      Serial.println(" W/m2");
+      ready = false;
+      busy = false;
+      return;
+    }
   }
 }
 
