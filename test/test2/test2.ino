@@ -52,8 +52,8 @@ void setup(void) {
   digitalWrite(A1,LOW);
   pinMode(A2,INPUT_PULLUP);
   
-  EEPROM.get(pUECSID,uecsid);
-  EEPROM.get(pMACADDR,macaddr);
+  // EEPROM.get(pUECSID,uecsid);
+  //EEPROM.get(pMACADDR,macaddr);
   for(i=0;i<16;i++) {
     lcdtext[0][i] = pgm_read_byte(&(VERSION[i]));
   }
@@ -76,28 +76,22 @@ void setup(void) {
   ready = false;
   busy = false;
   Ethernet.init(10);
-  if (Ethernet.begin(macaddr)==0) {
-    sprintf(lcdtext[1],"NFL");
-  } else {
-    localIP = Ethernet.localIP();
-    subnetmaskIP = Ethernet.subnetMask();
-    for(i=0;i<4;i++) {
-      broadcastIP[i] = ~subnetmaskIP[i]|localIP[i];
-    }
-    sprintf(lcdtext[2],ids,"HW",
-            macaddr[0],macaddr[1],macaddr[2],macaddr[3],macaddr[4],macaddr[5]);
-    sprintf(strIP,"%d.%d.%d.%d",localIP[0],localIP[1],localIP[2],localIP[3]);
-    sprintf(lcdtext[3],"%s",strIP);
-    lcdout(2,3,1);
-    Udp16520.begin(16520);
-  }
+  //  if (Ethernet.begin(macaddr)==0) {
+  //    sprintf(lcdtext[1],"NFL");
+  //  } else {
+  //    localIP = Ethernet.localIP();
+  //    subnetmaskIP = Ethernet.subnetMask();
+  //    for(i=0;i<4;i++) {
+  //      broadcastIP[i] = ~subnetmaskIP[i]|localIP[i];
+  //    }
+  //    sprintf(lcdtext[2],ids,"HW",
+  //            macaddr[0],macaddr[1],macaddr[2],macaddr[3],macaddr[4],macaddr[5]);
+  //    sprintf(strIP,"%d.%d.%d.%d",localIP[0],localIP[1],localIP[2],localIP[3]);
+  //    sprintf(lcdtext[3],"%s",strIP);
+  //    lcdout(2,3,1);
+  //    Udp16520.begin(16520);
+  //  }
 
-  lcd.setCursor(0,0);
-  lcd.print(pgname);
-  lcd.setCursor(0,1);
-  lcd.print(version);
-
-  
   TCCR1A  = 0;
   TCCR1B  = 0;
   TCCR1B |= (1 << WGM12) | (1 << CS12) | (1 << CS10);  //CTCmode //prescaler to 1024
