@@ -45,6 +45,7 @@ const char VERSION[16] PROGMEM = "M302 Solar Radi ";
 
 char uecsid[6], uecstext[180],strIP[16],linebuf[80];
 byte lineptr = 0;
+int  sht31addr = 0x44;  // Default SHT31 I2C Address
 int  sx8725c   = 0x48;  // Default SX8725C I2C Address
 unsigned long cndVal;   // CCM cnd Value
 char api[] = "api.smart-agri.jp";
@@ -78,7 +79,7 @@ void setup(void) {
   pinMode(SXD1,OUTPUT);
   digitalWrite(SXD0,LOW);
   digitalWrite(SXD1,LOW);
-  pinMode(,INPUT_PULLUP);
+  pinMode(A2,INPUT_PULLUP);
   EEPROM.get(pUECSID,uecsid);
   EEPROM.get(pMACADDR,macaddr);
   for(i=0;i<16;i++) {
@@ -142,21 +143,17 @@ void UserEvery10Seconds(void) {
   if (sht31addr>0) {
     //      ther = sht31.readTemperature();
     ia = pINAIRTEMP;
-    getSHTdata(&val[0],pINAIRTEMP,0);  // 整数型にしない
+    //    getSHTdata(&val[0],pINAIRTEMP,0);  // 整数型にしない
     //     Serial.println(val);
+    strcpy(val,"28.1");
     sprintf(linebuf,"T=%sC",val);
     uecsSendData(pINAIRTEMP,xmlDT,val,10);
-    getSHTdata(&val[0],pINAIRHUMID,0);  // 整数型
+    //    getSHTdata(&val[0],pINAIRHUMID,0);  // 整数型
     uecsSendData(pINAIRHUMID,xmlDT,val,10);
+    strcpy(val,"60.5");
     sprintf(lcdtext[4],"%s H=%s%%",linebuf,val);
   } else {
     strcpy(lcdtext[4],("NO SHT SENSOR"));
-  }
-  if (analogRead(CDS0SW)<100) {
-    cdsv = 1023 - analogRead(CDS0);
-    sprintf(&val[0],"%d",cdsv);
-    sprintf(lcdtext[5],"ILL=%d",cdsv);
-    uecsSendData(pINILLUMI,xmlDT,val,10);
   }
   Serial.print("@");
 }
@@ -168,15 +165,15 @@ void lcd_display_loop(void) {
   Serial.print("=");
   switch(dk) {
   case 3:
-    if (analogRead(CDS0SW)>=100) {
-      lcdout(3,4,1);
-      dk = -1;
-    }
+    //    if (analogRead(CDS0SW)>=100) {
+    //      lcdout(3,4,1);
+    //      dk = -1;
+    //    }
     break;
   case 4:
-    if (analogRead(CDS0SW)<100) {
-      lcdout(4,5,1);
-    }
+    //    if (analogRead(CDS0SW)<100) {
+    //      lcdout(4,5,1);
+    //    }
     break;
   case 5:
     dk = 0;
@@ -217,8 +214,7 @@ void loop() {
      period60sec = 0;
      wdt_reset();
      if (sht31addr>0) {
-       getSHTdata(&val[0],pINAIRTEMP,1); // 小数点下1桁の整数型
-       ia = gisSendData(pINAIRTEMP,16,val);
+       //       getSHTdata(&val[0],pINAIRTEMP,1); // 小数点下1桁の整数型
        switch(ia) {
        case 0:
          cndVal &= 0xffcffeff; // 
@@ -231,8 +227,7 @@ void loop() {
          break;
        }
        wdt_reset();
-       getSHTdata(&val[0],pINAIRHUMID,0); // 整数型
-       ia = gisSendData(pINAIRHUMID,17,val);
+       //       getSHTdata(&val[0],pINAIRHUMID,0); // 整数型
        switch(ia) {
        case 0:
          cndVal &= 0xffcffdff; // 
@@ -250,12 +245,11 @@ void loop() {
          cndVal |= ((ia << 4) & 0xf0);
        }
      }
-     if (analogRead(CDS0SW)<100) {
-       cdsv = 1023 - analogRead(CDS0);
-       sprintf(&val[0],"%d",cdsv);
-       ia = gisSendData(pINILLUMI,261,val);
-       wdt_reset();
-     }
+     //     if (analogRead(CDS0SW)<100) {
+     //       cdsv = 1023 - analogRead(CDS0);
+     //       sprintf(&val[0],"%d",cdsv);
+     //       wdt_reset();
+     //     }
    }
    // 1 sec interval
    //if (period1sec==1) {
@@ -327,74 +321,12 @@ void uecsSendData(int a,char *xmlDT,char *val,int z) {
   Udp16520.endPacket();
 }
 
-byte gisSendData(int a,int sk,char *val) {
-  int connectLoop = 0;
-  int inChar;
-  char headline[20];
-  const char *gisDT PROGMEM = "M=%02X%02X.%02X%02X.%02X%02X&I=%d&P=%d&V=%s&RM=%d&RE=%d&OD=%d&PR=%d&TP=%s.mIC";
-  byte room,region,priority,interval;
-  int  order,i;
-  char name[10],dname[11];
-  return 0;
-  lcd.setCursor(15,1);
-  lcd.print("W");
-  EEPROM.get(a+0x01,room);
-  EEPROM.get(a+0x02,region);
-  EEPROM.get(a+0x03,order);
-  EEPROM.get(a+0x05,priority);
-  EEPROM.get(a+0x06,interval);
-  EEPROM.get(a+0x07,name);
-  for(i=0;i<10;i++) {
-    dname[i] = name[i];
-    if (name[i]==NULL) break;
-  }
-  dname[i] = NULL;
-  
-  wdt_reset();
-  sprintf(linebuf,gisDT,macaddr[0],macaddr[1],macaddr[2],macaddr[3],macaddr[4],macaddr[5],
-          order,sk,val,room,region,order,priority,dname);
-  EthClient.stop();
-  if (EthClient.connect(api,80)) {
-    EthClient.println(F("POST /farmem/rx/rxdata.php HTTP/1.1"));
-    EthClient.println(F("Host: api.smart-agri.jp"));
-    EthClient.println(F("Connection: close\r\nContent-Type: application/x-www-form-urlencoded"));
-    sprintf(headline,"Content-Length: %u\r\n",strlen(linebuf));
-    EthClient.println(headline);
-    EthClient.print(linebuf);
-  } else {
-    Serial.println(F("SISE"));
-    lcd.setCursor(15,1);
-    lcd.print("E");
-    return 1;
-  }
-  while(EthClient.connected()) {
-    wdt_reset();
-    while(EthClient.available()) {
-      inChar = EthClient.read();
-      connectLoop = 0;
-    }
-    delay(1);
-    connectLoop++;
-    wdt_reset();
-    if(connectLoop > delayMillis) {
-      lcd.setCursor(15,1);
-      lcd.print("T");
-      EthClient.stop();
-      return 2;
-    }
-  }
-  EthClient.stop();
-  lcd.setCursor(15,1);
-  lcd.print(" ");
-  return 0;
-}
-
 void getSHTdata(char *v,int a,int f) {
   float fv;
   int ta,tb;
   switch(a) {
   case pINAIRTEMP:
-    fv = sht31.readTemperature();
+    //    fv = sht31.readTemperature();
     if (f==0) {
       ta = (int)fv;
       tb = round((double)((fv-ta)*10));
@@ -409,7 +341,7 @@ void getSHTdata(char *v,int a,int f) {
     }
     break;
   case pINAIRHUMID:
-    fv = sht31.readHumidity();
+    //    fv = sht31.readHumidity();
     sprintf(v,"%d",(int)fv);
     break;
   }

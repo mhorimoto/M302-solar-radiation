@@ -28,7 +28,7 @@
 #define RegACCfg5     0x57  //  ADC conversion control, Page 45
 #define RegMode       0x70  //  Chip operating mode register, Page 46
 
-const char VERSION[16] PROGMEM = "M302 Solar V0.02";
+const char VERSION[16] PROGMEM = "M302 Solar V0.05";
 char uecsid[6], uecstext[180],strIP[16],linebuf[80];
 
 LiquidCrystal_I2C lcd(0x27,16,2);  // set the LCD address to 0x27 for a 16 chars and 2 line display
@@ -47,6 +47,8 @@ volatile int period60sec = 0;
 void setup(void) {
   uint8_t data;
   int i;
+  const char *ids PROGMEM = "%s:%02X%02X%02X%02X%02X%02X";
+  extern void lcdout(int,int,int);
   lcd.init();
   lcd.backlight();
   pinMode(A0,OUTPUT);
@@ -80,22 +82,25 @@ void setup(void) {
   ready = false;
   busy = false;
   Ethernet.init(10);
-  //  if (Ethernet.begin(macaddr)==0) {
-  //    sprintf(lcdtext[1],"NFL");
-  //  } else {
-  //    localIP = Ethernet.localIP();
-  //    subnetmaskIP = Ethernet.subnetMask();
-  //    for(i=0;i<4;i++) {
-  //      broadcastIP[i] = ~subnetmaskIP[i]|localIP[i];
-  //    }
-  //    sprintf(lcdtext[2],ids,"HW",
-  //            macaddr[0],macaddr[1],macaddr[2],macaddr[3],macaddr[4],macaddr[5]);
-  //    sprintf(strIP,"%d.%d.%d.%d",localIP[0],localIP[1],localIP[2],localIP[3]);
-  //    sprintf(lcdtext[3],"%s",strIP);
-  //    lcdout(2,3,1);
-  //    Udp16520.begin(16520);
-  //  }
-
+  if (Ethernet.begin(macaddr)==0) {
+    sprintf(lcdtext[1],"NFL");
+  } else {
+    localIP = Ethernet.localIP();
+    subnetmaskIP = Ethernet.subnetMask();
+    for(i=0;i<4;i++) {
+      broadcastIP[i] = ~subnetmaskIP[i]|localIP[i];
+    }
+    sprintf(lcdtext[2],ids,"HW",
+            macaddr[0],macaddr[1],macaddr[2],macaddr[3],macaddr[4],macaddr[5]);
+    sprintf(strIP,"%d.%d.%d.%d",localIP[0],localIP[1],localIP[2],localIP[3]);
+    sprintf(lcdtext[3],"%s",strIP);
+    lcdout(2,3,1);
+    Udp16520.begin(16520);
+  }
+  Serial.println(lcdtext[1]);
+  Serial.println(lcdtext[2]);
+  Serial.println(lcdtext[3]);
+  
   TCCR1A  = 0;
   TCCR1B  = 0;
   TCCR1B |= (1 << WGM12) | (1 << CS12) | (1 << CS10);  //CTCmode //prescaler to 1024
