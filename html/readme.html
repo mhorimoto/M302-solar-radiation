@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8">
+    <title>MEMORY MAP TEXT FORMAT</title>
+    <style>
+      table {
+	  align: left;
+	  width:50%;
+	  border-collapse: collapse;
+	  border: 1px solid #000000;
+      }
+      table th,td {
+	  border: 1px solid #000000;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>EEPROM領域のメモリ割付</h1>
+    <p>EEPROM領域のメモリ割付について記す。
+      Arduino UNOのEEPROMは0〜0x3ffの1024バイトである。</p>
+    <h2>UECS IDなどを記録する領域</h2>
+    <p>0x00〜0x07f</p>
+    <blockquote>
+      <table>
+	<tr><th>0x000〜0x005</th><td>UECS-ID</td></tr>
+	<tr><th>0x006〜0x00b</th><td>MACアドレス</td></tr>
+	<tr><th>0x00c</th><td>0xff=DHCP<br>0x00=固定IP</td></tr>
+	<tr><th>0x00d〜0x00f</th><td>予約(0xff)</td></tr>
+	<tr><th>0x010〜0x013</th><td>IPアドレス (固定IPの場合)</td></tr>
+	<tr><th>0x014〜0x017</th><td>Subnet mask アドレス (固定IPの場合)</td></tr>
+	<tr><th>0x018〜0x01b</th><td>Default Gateway アドレス (固定IPの場合)</td></tr>
+	<tr><th>0x01c〜0x01f</th><td>DNSサーバアドレス (固定IPの場合)</td></tr>
+      </table>
+    </blockquote>
+    <h2>CCM typeを記録するメモリマップ (CCMmap1)</h2>
+    <p>0x080〜0x2ff<br>
+      32bytes/1record<br>
+      00=cnd が約束</p>
+    <blockquote>
+      <table>
+	<tr><th>byte位置</th><th>意味、ビット割付</th></tr>
+	<tr><th>00</th>
+	  <td>
+	    <blockquote>
+	      bit[0]
+	      <ul>
+		<li>enable=1</li>
+		<li>disable0</li>
+	      </ul>
+	    </blockquote>
+	  </td>
+	</tr>
+	<tr><th>01</th><td>room (0〜127)</td></tr>
+	<tr><th>02</th><td>region (0〜127)</td></tr>
+	<tr><th>03-04</th><td>order (LSB-MSBの順:0〜30000)</td></tr>
+	<tr><th>05</th><td>priority (0〜30)</td></tr>
+	<tr><th>06-25</th><td>ccm type名</td></tr>
+	<tr><th>26</th>
+	  <td>itvl 送信インターバル
+	    <blockquote>
+	      itvl[0:1]
+	      <ul>
+		<li>00=受信専用CCMのため送信しない</li>
+		<li>01=A</li>
+		<li>10=B</li>
+		<li>11=S</li>
+	      </ul>
+	      itvl[2:6]
+	      <ul>
+		<li>00001=1S</li>
+		<li>00010=10S</li>
+		<li>00100=1M</li>
+	      </ul>
+	      itvl[7]
+	      <ul>
+		<li>0 値変化時に送信しない</li>
+		<li>1 値変化時に送信する</li>
+	      </ul>
+	    </blockquote>
+	  </td>
+	</tr>
+	<tr><th>27-31</th><td>予約</td></tr>
+      </table>
+    </blockquote>
+    
+  </body>
+</html>
