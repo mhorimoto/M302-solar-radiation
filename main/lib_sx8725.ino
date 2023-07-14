@@ -85,11 +85,11 @@ void sx8725_read_allreg(void) {
   while(Wire.available()){
     regs[i] = Wire.read();
   }
-  for (i=0;i<14;i++) {
-    Serial.print(regname[i]);
-    Serial.print("=");
-    Serial.println(regs[i],BIN);
-  }
+  //  for (i=0;i<14;i++) {
+  //    Serial.print(regname[i]);
+  //    Serial.print("=");
+  //    Serial.println(regs[i],BIN);
+  //  }
 }
 
 void sx8725_setReg(uint8_t reg,uint8_t va) {

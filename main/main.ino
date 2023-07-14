@@ -40,7 +40,7 @@ void get_mcusr(void) {
 #define  SXD1        A1
 #define  SXREADY     A2
 
-const char VERSION[16] PROGMEM = "M302-SR V0.03  ";
+const char VERSION[16] PROGMEM = "M302-SR V0.60 ";
 
 char uecsid[6], uecstext[180],strIP[16],linebuf[80];
 byte lineptr = 0;
@@ -131,7 +131,7 @@ extern void lcdout(int,int,int);
 extern int setParam(char *);
 extern void dumpLowCore(void);
   
-#define CCMFMT "<?xml version=\"1.0\"?><UECS ver=\"1.00-E10\"><DATA type=\"%s.mIC\" room=\"%d\" region=\"%d\" order=\"%d\" priority=\"%d\">%s</DATA><IP>%s</IP></UECS>";
+#define CCMFMT "<?xml version=\"1.0\"?><UECS ver=\"1.00-E10\"><DATA type=\"%s\" room=\"%d\" region=\"%d\" order=\"%d\" priority=\"%d\">%s</DATA><IP>%s</IP></UECS>";
 //char *ids = "%s:%02X%02X%02X%02X%02X%02X";
 
 int dk=0;
@@ -145,9 +145,9 @@ void UserEvery10Seconds(void) {
 
 void lcd_display_loop(void) {
   dk++;
-  Serial.print("=");
-  Serial.print(dk);
-  Serial.print("=");
+  //  Serial.print("=");
+  //  Serial.print(dk);
+  //  Serial.print("=");
   switch(dk) {
   case 3:
     //    if (analogRead(CDS0SW)>=100) {
@@ -202,7 +202,7 @@ void loop() {
    //1 sec interval
    if (period1sec==1) {
       period1sec = 0;
-      ia = pCND;
+      ia = 0; // cnd
       sprintf(val,"%u",cndVal);
       uecsSendData(ia,xmlDT,val,0);
       cndVal &= 0xfffffffe;            // Clear setup completed flag
@@ -223,7 +223,6 @@ ISR(TIMER1_COMPA_vect) {
   if (cnt60 >= 60) {
     cnt60 = 0;
     period60sec = 1;
-    //UserEveryMinute();
   }
 }
 
@@ -248,10 +247,11 @@ void configure_wdt(void) {
                                    //  8 seconds: 0b100001
 }
 
-void uecsSendData(int a,char *xmlDT,char *val,int z) {
+void uecsSendData(int id,char *xmlDT,char *val,int z) {
   byte room,region,priority,interval;
-  int  order,i;
-  char name[10],dname[11]; // ,val[6];
+  int  order,i,a;
+  char name[20],dname[21]; // ,val[6];
+  a = id*0x20 + 0x80;
   EEPROM.get(a+0x01,room);
   EEPROM.get(a+0x02,region);
   EEPROM.get(a+0x03,order);
@@ -273,40 +273,38 @@ void UserEverySecond(void) {
   volatile bool aaa;
   volatile byte a=0 ;
   char val[6];
-  int ia;
+  int ia,l;
   char *xmlDT PROGMEM = CCMFMT;
-  if (a>9) {
-    a=0;
-  }
-  Serial.print(a);
-  a++;
+  extern char retV_get_sx8725data[];
 
   cndVal &= 0xfffffffe;            // Clear setup completed flag
   if (aaa) {
-    lcd.setCursor(10,1);
+    lcd.setCursor(15,0);
     aaa=false;
-    lcd.print("X");
+    lcd.print(">");
   } else {
-    lcd.setCursor(10,1);
+    lcd.setCursor(15,0);
     aaa=true;
-    lcd.print("O");
+    lcd.print("<");
   }
+  get_sx8725data();
+  uecsSendData(1,xmlDT,&retV_get_sx8725data[0],0);
+  l = strlen(retV_get_sx8725data);
+  lcd.setCursor(11-l,1);
+  lcd.print(retV_get_sx8725data);
+  lcd.setCursor(11,1);
+  lcd.print(" W/m2");
 }
 
 void UserEveryMinute(void) {
   static byte a=0 ;
   char *xmlDT PROGMEM = CCMFMT;
-  if (a>9) {
-    a=0;
-  }
-  Serial.print("*");
-  Serial.println(a);
-  a++;
 }
 
-void UES(void) {
-  int r;
-  float rv;
+char retV_get_sx8725data[10];
+void get_sx8725data(void) {
+  int r,rvr,rvx,l;
+  float rv,rvf;
   
   if (busy==false) {
     sx8725_setReg(RegACCfg0 , 0b10101000); // Start
@@ -321,12 +319,15 @@ void UES(void) {
     }
     if (ready) {
       r = sx8725_read_ACOut();
-      Serial.print("  R=");
-      Serial.print(r);
       rv = 0.1269*r-10.43;
-      Serial.print("  Radiation=");
-      Serial.print(rv);
-      Serial.println(" W/m2");
+      if (rv<0) {
+        strcpy(retV_get_sx8725data,"0.00");
+      } else {
+        rvr = int(rv);
+        rvf = rv - rvr;
+        rvx = abs(int(rvf*100));
+        sprintf(retV_get_sx8725data,"%d.%02d",rvr,rvx);
+      }
       ready = false;
       busy = false;
       return;
