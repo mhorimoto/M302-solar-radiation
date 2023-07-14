@@ -14,6 +14,9 @@
           margin: 3px;
 	  border: 1px solid #000000;
       }
+      table td.c {
+	  text-align: center;
+      }
     </style>
   </head>
   <body>
@@ -45,7 +48,7 @@
       </table>
     </blockquote>
     <h2>CCM typeを記録するメモリマップ (CCMmap1)</h2>
-    <p>0x080〜0x180<br>
+    <p>0x080〜0x17f<br>
       32bytes/1record<br>
       0x80 &Rarr; cnd が約束</p>
     <blockquote>
@@ -104,6 +107,35 @@
 	<tr><th>27-31</th><td>予約</td></tr>
       </table>
     </blockquote>
-    
+    <h2>CCMの精度と単位を記録するメモリマップ (CCMmap2)</h2>
+    <blockquote>
+      <p>0x180〜0x1ff<br>
+	12bytes/1record<br>
+	0x180 &Rarr; cnd が約束<br>
+	CCMmap1のレコード番号に対応している。</p>
+      <table style="width: 202px;">
+	<tr><th>CCMap1</th><th>CCMap2</th></tr>
+	<tr><td class="c">0x080</td><td class="c">0x180</td></tr>
+	<tr><td class="c">0x0a0</td><td class="c">0x190</td></tr>
+	<tr><td class="c">0x0c0</td><td class="c">0x1a0</td></tr>
+	<tr><td class="c">0x0e0</td><td class="c">0x1b0</td></tr>
+	<tr><td class="c">0x100</td><td class="c">0x1c0</td></tr>
+	<tr><td class="c">0x120</td><td class="c">0x1d0</td></tr>
+	<tr><td class="c">0x140</td><td class="c">0x1e0</td></tr>
+	<tr><td class="c">0x160</td><td class="c">0x1f0</td></tr>
+      </table>
+      <br>
+      <table>
+	<tr><th>byte位置</th><th>意味</th></tr>
+	<tr>
+	  <th>00</th>
+	  <td>精度、小数点下&#9108;桁</td>
+	</tr>
+	<tr>
+	  <th>01〜15</th>
+	  <td>単位(ASCII文字限定:15文字まで)</td>
+	</tr>
+      </table>
+    </blockquote>
   </body>
 </html>

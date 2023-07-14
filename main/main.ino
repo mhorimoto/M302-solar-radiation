@@ -18,6 +18,7 @@
 #include <Wire.h>
 #include <Adafruit_I2CDevice.h>
 #include <Adafruit_I2CRegister.h>
+#include "sx8725.h"
 
 uint8_t mcusr_mirror __attribute__ ((section (".noinit")));
 void get_mcusr(void)     \
@@ -32,23 +33,21 @@ void get_mcusr(void) {
 #define  UECS_PORT  16520
 #define  pUECSID      0
 #define  pMACADDR     6
-#define  pINAIRTEMP  16
-#define  pINAIRHUMID 33
-#define  pINILLUMI   51
-#define  pCND        0x43
+#define  pCND        0x80
+#define  pRADIATION  0xa0
 #define  delayMillis 5000UL // 5sec
 #define  SXD0        A0
 #define  SXD1        A1
 #define  SXREADY     A2
 
-const char VERSION[16] PROGMEM = "M302 Solar Radi ";
+const char VERSION[16] PROGMEM = "M302-SR V0.03  ";
 
 char uecsid[6], uecstext[180],strIP[16],linebuf[80];
 byte lineptr = 0;
-int  sht31addr = 0x44;  // Default SHT31 I2C Address
 int  sx8725c   = 0x48;  // Default SX8725C I2C Address
 unsigned long cndVal;   // CCM cnd Value
-char api[] = "api.smart-agri.jp";
+bool      ready,busy;
+uint8_t  regs[14];
 
 /////////////////////////////////////
 // Hardware Define
@@ -70,7 +69,8 @@ void setup(void) {
   int i;
   const char *ids PROGMEM = "%s:%02X%02X%02X%02X%02X%02X";
   extern void lcdout(int,int,int);
-
+  extern void setup_sx8725(void);
+  
   cndVal = 0L;    // Reset cnd value
   lcd.init();
   lcd.backlight();
@@ -108,6 +108,7 @@ void setup(void) {
     lcdout(2,3,1);
     Udp16520.begin(16520);
   }
+  setup_sx8725();
   wdt_reset();
   cndVal |= 0x00000001;  // Setup completed
   delay(1000);
@@ -140,22 +141,6 @@ void UserEvery10Seconds(void) {
   char name[10],dname[11],val[6];
   int ia,cdsv;
   wdt_reset();
-  if (sht31addr>0) {
-    //      ther = sht31.readTemperature();
-    ia = pINAIRTEMP;
-    //    getSHTdata(&val[0],pINAIRTEMP,0);  // 整数型にしない
-    //     Serial.println(val);
-    strcpy(val,"28.1");
-    sprintf(linebuf,"T=%sC",val);
-    uecsSendData(pINAIRTEMP,xmlDT,val,10);
-    //    getSHTdata(&val[0],pINAIRHUMID,0);  // 整数型
-    uecsSendData(pINAIRHUMID,xmlDT,val,10);
-    strcpy(val,"60.5");
-    sprintf(lcdtext[4],"%s H=%s%%",linebuf,val);
-  } else {
-    strcpy(lcdtext[4],("NO SHT SENSOR"));
-  }
-  Serial.print("@");
 }
 
 void lcd_display_loop(void) {
@@ -213,52 +198,16 @@ void loop() {
    if (period60sec==1) {
      period60sec = 0;
      wdt_reset();
-     if (sht31addr>0) {
-       //       getSHTdata(&val[0],pINAIRTEMP,1); // 小数点下1桁の整数型
-       switch(ia) {
-       case 0:
-         cndVal &= 0xffcffeff; // 
-         break;
-       case 1:
-         cndVal |= 0x00100100; // Not connect to Server
-         break;
-       case 2:
-         cndVal |= 0x00200100; // Server response timeout
-         break;
-       }
-       wdt_reset();
-       //       getSHTdata(&val[0],pINAIRHUMID,0); // 整数型
-       switch(ia) {
-       case 0:
-         cndVal &= 0xffcffdff; // 
-         break;
-       case 1:
-         cndVal |= 0x00100200; // Not connect to Server
-         break;
-       case 2:
-         cndVal |= 0x00200200; // Server response timeout
-         break;
-       }
-       cndVal &= 0xffffff0f;  // Reset maintain code
-       ia = Ethernet.maintain();
-       if (ia!=0) {
-         cndVal |= ((ia << 4) & 0xf0);
-       }
-     }
-     //     if (analogRead(CDS0SW)<100) {
-     //       cdsv = 1023 - analogRead(CDS0);
-     //       sprintf(&val[0],"%d",cdsv);
-     //       wdt_reset();
-     //     }
    }
-   // 1 sec interval
-   //if (period1sec==1) {
-     // period1sec = 0;
-     // ia = pCND;
-     // sprintf(val,"%u",cndVal);
-     // uecsSendData(ia,xmlDT,val);
-     // cndVal &= 0xfffffffe;            // Clear setup completed flag
-   //}
+   //1 sec interval
+   if (period1sec==1) {
+      period1sec = 0;
+      ia = pCND;
+      sprintf(val,"%u",cndVal);
+      uecsSendData(ia,xmlDT,val,0);
+      cndVal &= 0xfffffffe;            // Clear setup completed flag
+      UserEverySecond();
+   }
    wdt_reset();
 }
 
@@ -267,7 +216,6 @@ ISR(TIMER1_COMPA_vect) {
   cnt10++;
   cnt60++;
   period1sec = 1;
-  UserEverySecond();
   if (cnt10 >= 10) {
     cnt10 = 0;
     period10sec = 1;
@@ -275,7 +223,7 @@ ISR(TIMER1_COMPA_vect) {
   if (cnt60 >= 60) {
     cnt60 = 0;
     period60sec = 1;
-    UserEveryMinute();
+    //UserEveryMinute();
   }
 }
 
@@ -308,8 +256,8 @@ void uecsSendData(int a,char *xmlDT,char *val,int z) {
   EEPROM.get(a+0x02,region);
   EEPROM.get(a+0x03,order);
   EEPROM.get(a+0x05,priority);
-  EEPROM.get(a+0x06,interval);
-  EEPROM.get(a+0x07,name);
+  EEPROM.get(a+  26,interval);
+  EEPROM.get(a+0x06,name);
   for(i=0;i<10;i++) {
     dname[i] = name[i];
     if (name[i]==NULL) break;
@@ -321,34 +269,9 @@ void uecsSendData(int a,char *xmlDT,char *val,int z) {
   Udp16520.endPacket();
 }
 
-void getSHTdata(char *v,int a,int f) {
-  float fv;
-  int ta,tb;
-  switch(a) {
-  case pINAIRTEMP:
-    //    fv = sht31.readTemperature();
-    if (f==0) {
-      ta = (int)fv;
-      tb = round((double)((fv-ta)*10));
-      if (tb>=10.0) {
-        ta++;
-        tb-=10;
-      }
-      sprintf(v,"%d.%01d",ta,tb);
-    } else {
-      ta = round(fv*pow(10.0,f)) ; // f=2ならば、100倍する
-      sprintf(v,"%d",ta);
-    }
-    break;
-  case pINAIRHUMID:
-    //    fv = sht31.readHumidity();
-    sprintf(v,"%d",(int)fv);
-    break;
-  }
-}
-
 void UserEverySecond(void) {
-  static byte a=0 ;
+  volatile bool aaa;
+  volatile byte a=0 ;
   char val[6];
   int ia;
   char *xmlDT PROGMEM = CCMFMT;
@@ -357,11 +280,17 @@ void UserEverySecond(void) {
   }
   Serial.print(a);
   a++;
-  period1sec = 0;
-  ia = pCND;
-  sprintf(val,"%u",cndVal);
-  uecsSendData(ia,xmlDT,val,0);
+
   cndVal &= 0xfffffffe;            // Clear setup completed flag
+  if (aaa) {
+    lcd.setCursor(10,1);
+    aaa=false;
+    lcd.print("X");
+  } else {
+    lcd.setCursor(10,1);
+    aaa=true;
+    lcd.print("O");
+  }
 }
 
 void UserEveryMinute(void) {
@@ -374,4 +303,36 @@ void UserEveryMinute(void) {
   Serial.println(a);
   a++;
 }
+
+void UES(void) {
+  int r;
+  float rv;
+  
+  if (busy==false) {
+    sx8725_setReg(RegACCfg0 , 0b10101000); // Start
+    busy = true;
+    ready= false;
+  }
+  while(true) {
+    if (digitalRead(A2)) {
+      ready = true;
+    } else {
+      ready = false;
+    }
+    if (ready) {
+      r = sx8725_read_ACOut();
+      Serial.print("  R=");
+      Serial.print(r);
+      rv = 0.1269*r-10.43;
+      Serial.print("  Radiation=");
+      Serial.print(rv);
+      Serial.println(" W/m2");
+      ready = false;
+      busy = false;
+      return;
+    }
+  }
+}
+
+
 
