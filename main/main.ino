@@ -40,7 +40,7 @@ void get_mcusr(void) {
 #define  SXD1        A1
 #define  SXREADY     A2
 
-const char VERSION[16] PROGMEM = "M302-SR V0.60 ";
+const char VERSION[16] PROGMEM = "M302-SR V0.70 ";
 
 char uecsid[6], uecstext[180],strIP[16],linebuf[80];
 byte lineptr = 0;
@@ -135,14 +135,6 @@ extern void dumpLowCore(void);
 //char *ids = "%s:%02X%02X%02X%02X%02X%02X";
 
 int dk=0;
-void UserEvery10Seconds(void) {
-  extern void lcdout(int,int,int);
-  char *xmlDT PROGMEM = CCMFMT;
-  char name[10],dname[11],val[6];
-  int ia,cdsv;
-  wdt_reset();
-}
-
 void lcd_display_loop(void) {
   dk++;
   //  Serial.print("=");
@@ -275,7 +267,6 @@ void UserEverySecond(void) {
   char val[6];
   int ia,l;
   char *xmlDT PROGMEM = CCMFMT;
-  extern char retV_get_sx8725data[];
 
   cndVal &= 0xfffffffe;            // Clear setup completed flag
   if (aaa) {
@@ -287,13 +278,26 @@ void UserEverySecond(void) {
     aaa=true;
     lcd.print("<");
   }
+  wdt_reset();
+}
+
+void UserEvery10Seconds(void) {
+  extern void lcdout(int,int,int);
+  char *xmlDT PROGMEM = CCMFMT;
+  char name[10],dname[11],val[6];
+  int ia,cdsv,l;
+  extern char retV_get_sx8725data[];
+
   get_sx8725data();
   uecsSendData(1,xmlDT,&retV_get_sx8725data[0],0);
   l = strlen(retV_get_sx8725data);
+  lcd.setCursor(0,1);
+  lcd.print("          ");
   lcd.setCursor(11-l,1);
   lcd.print(retV_get_sx8725data);
   lcd.setCursor(11,1);
   lcd.print(" W/m2");
+  wdt_reset();
 }
 
 void UserEveryMinute(void) {
